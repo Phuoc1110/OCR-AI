@@ -1,0 +1,27 @@
+# Flask==3.1.3
+# Flask-Cors>=4.0.0
+Flask
+
+# Core OCR (Ghim cứng phiên bản để tránh lỗi đổi API)
+paddleocr==2.8.1
+paddlepaddle==2.6.2
+
+# Xử lý ma trận (Bắt buộc phải nhỏ hơn 2.0 theo đúng môi trường train)
+numpy==1.26.4
+
+# Xử lý ảnh (Ghim đúng bản 4.8.0.76 để tránh lỗi thư viện lõi)
+opencv-python-headless==4.8.0.76
+    
+# Các thư viện phụ trợ (từ requirements của PaddleOCR)
+pyclipper==1.4.0
+lmdb==2.2.0
+rapidfuzz==3.14.5
+PyYAML==6.0.2
+
+
+# Flask
+# numpy
+# opencv-python-headless
+# paddleocr
+# paddlepaddle
+# gunicorn
