@@ -68,7 +68,7 @@ def recognize_image(image_path):
 
 
 def main():
-    image_path = sys.argv[1] if len(sys.argv) > 1 else str(BASE_DIR / "../Images/image_1.png")
+    image_path = sys.argv[1] if len(sys.argv) > 1 else str(BASE_DIR / "../Images/T1.png")
     payload = recognize_image(image_path)
     print(json.dumps(payload, ensure_ascii=False))
 

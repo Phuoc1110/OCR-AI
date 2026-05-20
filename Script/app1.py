@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-Flask OCR server built from run1.py
-Keeps the PaddleOCR model loaded in memory and exposes HTTP endpoints.
+Flask OCR server based on run1.py.
+Uses PaddleOCR in memory and applies lightweight image normalization so
+problematic uploads are less likely to hit native Paddle execution errors.
 """
 
 import os
+import tempfile
 from pathlib import Path
 
 import cv2
@@ -59,40 +61,71 @@ def initialize_ocr():
     return ocr
 
 
-def recognize_image_data(image_data):
-    ocr_instance = initialize_ocr()
-
-    nparr = np.frombuffer(image_data, np.uint8)
-    image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
+def normalize_image(image):
     if image is None:
         raise ValueError("Unable to decode image")
 
-    result = ocr_instance.ocr(image, cls=True)
+    if len(image.shape) == 2:
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    elif image.shape[2] == 4:
+        image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+
+    image = np.ascontiguousarray(image)
+
+    min_side = min(image.shape[0], image.shape[1])
+    if min_side < 32:
+        scale = 32.0 / float(min_side)
+        new_width = max(32, int(image.shape[1] * scale))
+        new_height = max(32, int(image.shape[0] * scale))
+        image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+
+    return image
+
+
+def run_ocr_from_bytes(image_data):
+    ocr_instance = initialize_ocr()
+
+    nparr = np.frombuffer(image_data, np.uint8)
+    decoded_image = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
+    image = normalize_image(decoded_image)
+
+    temp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+            temp_path = temp_file.name
+            cv2.imwrite(temp_path, image)
+
+        result = ocr_instance.ocr(temp_path, cls=True)
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+
     lines = result[0] if result else []
 
     recognized_items = []
     recognized_words = []
 
-    if lines:
-        for line in lines:
-            if not line or len(line) < 2:
-                continue
+    for line in lines:
+        if not line or len(line) < 2:
+            continue
 
-            box = np.array(line[0]).astype(np.int32)
-            text = str(line[1][0]).strip() if line[1] else ""
-            confidence = float(line[1][1]) if line[1] and len(line[1]) > 1 else 0.0
+        box = np.array(line[0]).astype(np.int32)
+        text = str(line[1][0]).strip() if line[1] else ""
+        confidence = float(line[1][1]) if line[1] and len(line[1]) > 1 else 0.0
 
-            if text:
-                recognized_items.append(
-                    {
-                        "text": text,
-                        "confidence": confidence,
-                        "box": box.tolist(),
-                    }
-                )
-                recognized_words.append(text)
-                cv2.polylines(image, [box], isClosed=True, color=(0, 0, 255), thickness=2)
+        if text:
+            recognized_items.append(
+                {
+                    "text": text,
+                    "confidence": confidence,
+                    "box": box.tolist(),
+                }
+            )
+            recognized_words.append(text)
+            cv2.polylines(image, [box], isClosed=True, color=(0, 0, 255), thickness=2)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(OUTPUT_DIR / "result_with_boxes.jpg"), image)
@@ -150,8 +183,7 @@ def ocr_endpoint():
                 400,
             )
 
-        image_data = image_file.read()
-        payload = recognize_image_data(image_data)
+        payload = run_ocr_from_bytes(image_file.read())
 
         return jsonify(
             {
@@ -199,8 +231,7 @@ def ocr_base64_endpoint():
 
         import base64
 
-        image_data = base64.b64decode(data["image"])
-        payload = recognize_image_data(image_data)
+        payload = run_ocr_from_bytes(base64.b64decode(data["image"]))
 
         return jsonify(
             {
