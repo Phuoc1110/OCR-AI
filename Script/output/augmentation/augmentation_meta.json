@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-05-28T06:27:11Z",
+  "base_image": "/home/phuoclake/Documents/FINAL/AI/Script/output/augmentation/base_image.jpg",
+  "augmented_images": [
+    {
+      "path": "/home/phuoclake/Documents/FINAL/AI/Script/output/augmentation/image_aug_01.jpg",
+      "applied": [
+        "flip",
+        "saturation"
+      ]
+    },
+    {
+      "path": "/home/phuoclake/Documents/FINAL/AI/Script/output/augmentation/image_aug_02.jpg",
+      "applied": [
+        "saturation",
+        "noise",
+        "brightness_contrast",
+        "flip"
+      ]
+    },
+    {
+      "path": "/home/phuoclake/Documents/FINAL/AI/Script/output/augmentation/image_aug_03.jpg",
+      "applied": [
+        "noise",
+        "crop_resize",
+        "brightness_contrast",
+        "rotation"
+      ]
+    },
+    {
+      "path": "/home/phuoclake/Documents/FINAL/AI/Script/output/augmentation/image_aug_04.jpg",
+      "applied": [
+        "rotation",
+        "brightness_contrast",
+        "noise",
+        "crop_resize"
+      ]
+    },
+    {
+      "path": "/home/phuoclake/Documents/FINAL/AI/Script/output/augmentation/image_aug_05.jpg",
+      "applied": [
+        "crop_resize",
+        "rotation"
+      ]
+    }
+  ],
+  "text_variants": [
+    "japanese sign jp menu",
+    "sign japanese",
+    "japanese menu board",
+    "japanese sign notice",
+    "jp sign notice"
+  ]
+}

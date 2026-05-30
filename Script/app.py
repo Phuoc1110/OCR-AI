@@ -15,7 +15,7 @@ from paddleocr import PaddleOCR
 
 BASE_DIR = Path(__file__).resolve().parent
 DET_MODEL_DIR = BASE_DIR / "inference" / "det_mv3_db"
-REC_MODEL_DIR = BASE_DIR / "inference" / "rec_japan_scratch_inference_5"
+REC_MODEL_DIR = BASE_DIR / "inference" / "rec_japan_scratch_inference_18"
 OUTPUT_DIR = BASE_DIR / "output"
 
 
@@ -23,23 +23,16 @@ app = Flask(__name__)
 ocr = None
 
 
-def use_custom_rec():
-    value = os.environ.get("OCR_USE_CUSTOM_REC", "").strip().lower()
-    return value in ("1", "true", "yes", "on")
-
-
 def build_ocr():
     ocr_kwargs = {
         "det_model_dir": str(DET_MODEL_DIR),
+        "rec_model_dir": str(REC_MODEL_DIR),
         "use_angle_cls": True,
         "lang": "japan",
         "show_log": False,
         "ir_optim": False,
         "enable_mkldnn": False,
     }
-
-    if use_custom_rec():
-        ocr_kwargs["rec_model_dir"] = str(REC_MODEL_DIR)
 
     return PaddleOCR(**ocr_kwargs)
 
@@ -48,10 +41,7 @@ def initialize_ocr():
     global ocr
     if ocr is None:
         print("[OCR Server] Initializing PaddleOCR model...", flush=True)
-        if use_custom_rec():
-            print("[OCR Server] Using custom rec model.", flush=True)
-        else:
-            print("[OCR Server] Using default rec model.", flush=True)
+        print("[OCR Server] Using custom rec model.", flush=True)
 
         ocr = build_ocr()
         print("[OCR Server] PaddleOCR model initialized successfully!", flush=True)
