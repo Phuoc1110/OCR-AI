@@ -18,10 +18,11 @@ DET_MODEL_DIR = BASE_DIR / "inference" / "det_mv3_db"
 REC_MODEL_DIR = BASE_DIR / "inference" / "rec_japan_scratch_inference_18"
 OUTPUT_DIR = BASE_DIR / "output"
 
+import threading
 
 app = Flask(__name__)
 ocr = None
-
+ocr_lock = threading.Lock()
 
 def build_ocr():
     ocr_kwargs = {
@@ -55,10 +56,12 @@ def recognize_image_data(image_data):
     nparr = np.frombuffer(image_data, np.uint8)
     image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    if image is None:
-        raise ValueError("Unable to decode image")
+    if image is None or image.size == 0 or image.shape[0] < 5 or image.shape[1] < 5:
+        raise ValueError("Unable to decode image or image is too small")
 
-    result = ocr_instance.ocr(image, cls=True)
+    with ocr_lock:
+        result = ocr_instance.ocr(image, cls=True)
+        
     lines = result[0] if result else []
 
     recognized_items = []
@@ -221,6 +224,7 @@ def ocr_base64_endpoint():
 if __name__ == "__main__":
     initialize_ocr()
 
-    port = int(os.environ.get("OCR_SERVER_PORT", 5001))
+    port = int(os.environ.get("PORT", 5001))
     print(f"[OCR Server] Starting OCR server on port {port}...", flush=True)
-    app.run(host="127.0.0.1", port=port, debug=False)
+    # Disable threading because PaddleOCR C++ engine binds to the thread that first executed it
+    app.run(host="0.0.0.0", port=port, debug=False, threaded=False)

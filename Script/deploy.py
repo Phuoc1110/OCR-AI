@@ -2,12 +2,22 @@ import os
 from app import app, initialize_ocr
 
 if __name__ == "__main__":
-    # Khởi tạo mô hình AI trước khi chạy server
     initialize_ocr()
-    
-    # Môi trường cloud (như Render) sẽ tự động gán biến PORT
     port = int(os.environ.get("PORT", 5001))
-    print(f"[OCR Server Deploy] Starting OCR server on 0.0.0.0:{port}...", flush=True)
     
-    # Quan trọng: host="0.0.0.0" để cho phép các request từ bên ngoài truy cập vào server
+    try:
+        from pyngrok import ngrok
+        # Tạo đường hầm (tunnel) để đưa localhost ra public internet
+        public_url = ngrok.connect(port).public_url
+        print("\n" + "="*60)
+        print("🚀 ĐÃ KẾT NỐI INTERNET THÀNH CÔNG!")
+        print(f"👉 COPY LINK NÀY ĐỂ DÁN VÀO RENDER: {public_url}")
+        print("="*60 + "\n")
+    except ImportError:
+        print("\n" + "="*60)
+        print("⚠️ CHƯA CÀI ĐẶT PYNGROK")
+        print("Hãy mở terminal mới và chạy lệnh: pip install pyngrok")
+        print("Sau đó chạy lại file này để có link public!")
+        print("="*60 + "\n")
+
     app.run(host="0.0.0.0", port=port, debug=False)
