@@ -9,13 +9,16 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import json
+import torch
 from flask import Flask, jsonify, request
 from paddleocr import PaddleOCR
+import re
 
 
 BASE_DIR = Path(__file__).resolve().parent
 DET_MODEL_DIR = BASE_DIR / "inference" / "det_mv3_db"
-REC_MODEL_DIR = BASE_DIR / "inference" / "rec_japan_scratch_inference_18"
+REC_MODEL_DIR = BASE_DIR / "inference" / "rec_japan_scratch_inference_32"
 OUTPUT_DIR = BASE_DIR / "output"
 
 import threading
@@ -23,6 +26,27 @@ import threading
 app = Flask(__name__)
 ocr = None
 ocr_lock = threading.Lock()
+
+def load_confusion_matrix():
+    matrix_path = BASE_DIR / "confusion_matrix.json"
+    if matrix_path.exists():
+        with open(matrix_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+CONFUSION_MATRIX = load_confusion_matrix()
+
+def post_process_text(text):
+    # Lọc bỏ các ký tự chữ cái latin (Romaji) và một số ký hiệu nhiễu
+    text = re.sub(r'[a-zA-ZÀ-ÿ]', '', text)
+    text = re.sub(r'[|~_`\\]', '', text)
+    
+    # 1. Dùng Word-level confusion matrix cũ trước
+    for wrong, correct in CONFUSION_MATRIX.items():
+        if wrong in text:
+            text = text.replace(wrong, correct)
+            
+    return text
 
 def build_ocr():
     ocr_kwargs = {
@@ -74,6 +98,11 @@ def recognize_image_data(image_data):
 
             box = np.array(line[0]).astype(np.int32)
             text = str(line[1][0]).strip() if line[1] else ""
+            
+            # Lọc trực tiếp các chữ Romaji/tiếng Anh ở cấp độ từng từ OCR
+            text = re.sub(r'[a-zA-ZÀ-ÿ]', '', text)
+            text = re.sub(r'[|~_`\\]', '', text).strip()
+            
             confidence = float(line[1][1]) if line[1] and len(line[1]) > 1 else 0.0
 
             if text:
@@ -99,9 +128,11 @@ def recognize_image_data(image_data):
         seen.add(normalized)
         unique_words.append(normalized)
 
+    full_text = post_process_text(" ".join(unique_words).strip())
+
     return {
         "words": unique_words,
-        "text": " ".join(unique_words).strip(),
+        "text": full_text,
         "items": recognized_items,
     }
 
@@ -219,6 +250,35 @@ def ocr_base64_endpoint():
             ),
             500,
         )
+
+
+@app.route("/correct-text", methods=["POST"])
+def correct_text_endpoint():
+    try:
+        data = request.get_json(silent=True)
+        if not data or "text" not in data:
+            return jsonify({
+                "errCode": 1,
+                "errMessage": "Missing text data",
+                "correctedText": ""
+            }), 400
+
+        text = data["text"]
+        corrected = post_process_text(text)
+
+        return jsonify({
+            "errCode": 0,
+            "errMessage": "OK",
+            "correctedText": corrected
+        })
+
+    except Exception as e:
+        print(f"[OCR Server] Error: {str(e)}", flush=True)
+        return jsonify({
+            "errCode": -1,
+            "errMessage": f"Internal server error: {str(e)}",
+            "correctedText": ""
+        }), 500
 
 
 if __name__ == "__main__":
